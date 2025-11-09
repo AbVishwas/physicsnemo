@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0a0] - 2025-11-10
+
+### Added
+
+- Added 3D-EDMPrecond wrapper class with 3D version of SongUnet for diffusion models:
+  - `SongUNet3D`: 3D U-Net diffusion backbone extending DDPM++ and NCSN++ to volumetric data
+  - New test to cover the SongUnet3D
+  - `EDMPrecond3D`: 3D preconditioning wrapper for volumetric diffusion models
+
 ## [1.3.0a0] - 2025-XX-YY
 
 ### Added

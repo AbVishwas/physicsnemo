@@ -81,9 +81,9 @@ characteristic of urban canopy flows.
 
 The 3D DNS dataset is described in detail in:
 
-> **Reference:** Vinuesa, R., Noorani, A., Lozano-Durán, A., El Khoury, G. K.,
-> Schlatter, P., Fischer, P. F., & Nagib, H. M. (2014). Causality analysis of
-> large-scale structures in the flow around a wall-mounted square cylinder.
+> **Reference:** Martínez-Sánchez Á, López E, Le Clainche S, Lozano-Durán A,
+> Srivastava A, Vinuesa R(2023). Causality analysis of large-scale structures in
+> the flow around a wall-mounted square cylinder.
 > *Journal of Fluid Mechanics*, 758, 252-272.
 > [DOI: 10.1017/jfm.2014.544](https://www.cambridge.org/core/journals/journal-of-fluid-mechanics/article/causality-analysis-of-largescale-structures-in-the-flow-around-a-wallmounted-square-cylinder/052D6C4235154130B14E336B0F7B9E13)
 
@@ -365,7 +365,7 @@ evaluation settings.
 
 Instantaneous velocity snapshots show realistic turbulent structures:
 
-![Visual Comparison](results/uncond_eval/epoch-1100/pred_snaps-1000-visual_comparison_num-0.pdf)
+![Visual Comparison](results/uncond_eval/epoch-1100/pred_snaps-1000-visual_comparison_num-0.png)
 
 > **Figure 5:** Side-by-side comparison of instantaneous flow fields. Top:
 > Ground truth. Bottom: Generated. The model captures vortical structures,
@@ -382,13 +382,13 @@ Instantaneous velocity snapshots show realistic turbulent structures:
 The generated flows accurately reproduce the Reynolds stress components of the
 training data:
 
-![Reynolds Stresses](results/uncond_eval/epoch-1100/pred_snaps-1000-Reynolds_stresses1.pdf)
+![Reynolds Stresses](results/uncond_eval/epoch-1100/pred_snaps-1000-Reynolds_stresses1.png)
 
 > **Figure 1:** Comparison of Reynolds normal stresses (⟨u'u'⟩, ⟨v'v'⟩) between
 > ground truth (training data) and generated samples. Spatial profiles
 > demonstrate excellent statistical agreement.
 
-![Reynolds Shear Stress](results/uncond_eval/epoch-1100/pred_snaps-1000-Reynolds_stresses2.pdf)
+![Reynolds Shear Stress](results/uncond_eval/epoch-1100/pred_snaps-1000-Reynolds_stresses2.png)
 
 > **Figure 2:** Reynolds shear stress (⟨u'v'⟩) spatial distribution. The model
 > captures the correlation structure between velocity components.
@@ -403,12 +403,12 @@ training data:
 
 The velocity component distributions and correlations are accurately captured:
 
-![JPDFs Comparison 1](results/uncond_eval/epoch-1100/pred_snaps-1000-jpdfs-0.pdf)
+![JPDFs Comparison 1](results/uncond_eval/epoch-1100/pred_snaps-1000-jpdfs-0.png)
 
 > **Figure 3:** Joint PDF of (u, v) velocities at probe location 1. Generated
 > samples (right) closely match the ground truth distribution (left).
 
-![JPDFs Comparison 2](results/uncond_eval/epoch-1100/pred_snaps-1000-jpdfs-1.pdf)
+![JPDFs Comparison 2](results/uncond_eval/epoch-1100/pred_snaps-1000-jpdfs-1.png)
 
 > **Figure 4:** Joint PDF at probe location 2, demonstrating consistent
 > statistical fidelity across spatial locations.
@@ -521,18 +521,3 @@ This project is licensed under the Apache License 2.0 - see the
 [LICENSE](../../LICENSE.txt) file for details.
 
 ---
-
-## Acknowledgments
-
-This work was supported by the NVIDIA AI Technology Center (NVAITC) and
-conducted as part of research on urban flow monitoring and climate resilience.
-Training was performed on the Alvis and Helios clusters at Chalmers University
-of Technology and the National Supercomputer Centre (NSC).
-
----
-
-## Contact
-
-For questions or issues, please open an issue on the
-[PhysicsNeMo GitHub repository](https://github.com/NVIDIA/physicsnemo/issues)
-or contact the authors.

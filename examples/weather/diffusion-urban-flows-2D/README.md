@@ -369,8 +369,9 @@ Instantaneous velocity snapshots show realistic turbulent structures:
 
 > **Figure 1:** Side-by-side comparison of unconditional instantaneous
 > flow fields (right two columns) with ground truth (left column).
-> Top: Ground truth. Bottom: Generated. The model captures vortical
-> structures, shear layers, and fine-scale turbulence.
+> Top: stream-wise velocity component (u'). Bottom: wall-normal velocity
+> component (v'). The model captures vortical structures, shear layers,
+> and fine-scale turbulence.
 
 **Key Observations:**
 

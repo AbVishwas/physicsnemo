@@ -367,9 +367,10 @@ Instantaneous velocity snapshots show realistic turbulent structures:
 
 ![Visual Comparison](results/uncond_eval/epoch-1100/pred_snaps-1000-visual_comparison_num-0.png)
 
-> **Figure 5:** Side-by-side comparison of instantaneous flow fields. Top:
-> Ground truth. Bottom: Generated. The model captures vortical structures,
-> shear layers, and fine-scale turbulence.
+> **Figure 1:** Side-by-side comparison of unconditional instantaneous
+> flow fields (right two columns) with ground truth (left column).
+> Top: Ground truth. Bottom: Generated. The model captures vortical
+> structures, shear layers, and fine-scale turbulence.
 
 **Key Observations:**
 
@@ -384,13 +385,13 @@ training data:
 
 ![Reynolds Stresses](results/uncond_eval/epoch-1100/pred_snaps-1000-Reynolds_stresses1.png)
 
-> **Figure 1:** Comparison of Reynolds normal stresses (⟨u'u'⟩, ⟨v'v'⟩) between
+> **Figure 2:** Comparison of Reynolds normal stresses (⟨u'u'⟩, ⟨v'v'⟩) between
 > ground truth (training data) and generated samples. Spatial profiles
 > demonstrate excellent statistical agreement.
 
 ![Reynolds Shear Stress](results/uncond_eval/epoch-1100/pred_snaps-1000-Reynolds_stresses2.png)
 
-> **Figure 2:** Reynolds shear stress (⟨u'v'⟩) spatial distribution. The model
+> **Figure 3:** Reynolds shear stress (⟨u'v'⟩) spatial distribution. The model
 > captures the correlation structure between velocity components.
 
 **Key Observations:**
@@ -405,13 +406,13 @@ The velocity component distributions and correlations are accurately captured:
 
 ![JPDFs Comparison 1](results/uncond_eval/epoch-1100/pred_snaps-1000-jpdfs-0.png)
 
-> **Figure 3:** Joint PDF of (u, v) velocities at probe location 1. Generated
-> samples (right) closely match the ground truth distribution (left).
+> **Figure 4:** Joint PDF of (u') velocity fluctuation component at y/h =
+> 0.5.
 
 ![JPDFs Comparison 2](results/uncond_eval/epoch-1100/pred_snaps-1000-jpdfs-1.png)
 
-> **Figure 4:** Joint PDF at probe location 2, demonstrating consistent
-> statistical fidelity across spatial locations.
+> **Figure 5:** Joint PDF of (v') velocity fluctuation component at y/h =
+> 0.5.
 
 **Key Observations:**
 

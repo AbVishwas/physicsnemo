@@ -6,16 +6,217 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0a0] - 2025-11-10
+## [2.1.0a0] - 2026-XX-YY
 
 ### Added
 
-- Added 3D-EDMPrecond wrapper class with 3D version of SongUnet for diffusion models:
-  - `SongUNet3D`: 3D U-Net diffusion backbone extending DDPM++ and NCSN++ to volumetric data
-  - New test to cover the SongUnet3D
-  - `EDMPrecond3D`: 3D preconditioning wrapper for volumetric diffusion models
+- Adds GLOBE model (`physicsnemo.experimental.models.globe.model.GLOBE`),
+  including new variant that uses a dual tree traversal algorithm to reduce the
+  complexity of the kernel evaluations from O(N^2) to O(N).
+- Adds GLOBE AirFRANS example case (`examples/cfd/external_aerodynamics/globe/airfrans`)
+- Adds drop-test dynamics recipe.
+- Adds concrete dropout uncertainty quantification for GeoTransolver. Learnable
+  per-layer dropout rates enable MC-Dropout inference for uncertainty
+  estimates. Disabled by default (`concrete_dropout: false`).
+- Adds automatic support for `FSDP` and/or `ShardTensor` models in checkpoint save/load
+  functionality
+- PhysicsNeMo-Mesh now supports conversion from PyVista/VTK/VTU meshes that may
+  contain polyhedral cells.
+- In PhysicsNeMo-Mesh, adds `Mesh.to_point_cloud()`, `.to_edge_graph()`, and
+  `.to_dual_graph()` methods. These allow Mesh conversion to 0D point clouds, 1D
+  edge graphs, and 1D dual graphs, respectively, when connectivity information
+  is not needed.
+- Adds `physicsnemo.mesh.generate` subpackage with `marching_cubes` for
+  isosurface extraction from 3D scalar fields, returning a `Mesh` object.
+  Supports the NVIDIA Warp backend.
+- Adds a type system to PhysicsNeMo-Mesh, allowing annotation of Mesh dimensions
+  using notation like `Mesh[2, 3]` for a 2D manifold in 3D space.
+- Adds adjacency caching to PhysicsNeMo-Mesh `Mesh` objects, allowing efficient
+  reuse of neighbor information.
+- Adds `DomainMesh` class for grouping an interior mesh with named boundary
+  meshes and domain-level metadata, with passthrough geometric transforms
+  (translate, rotate, scale, transform) and data operations.
+- Allows selective per-field transformation of `Mesh` objects: `transform_point_data`,
+  `transform_cell_data`, and `transform_global_data` now accept `bool | TensorDict`
+  (or plain `dict` for convenience).
+- Adds `physicsnemo.mesh.remeshing` subpackage with `partition_cells()` for
+  creating Voronoi regions around seed points. BVH-accelerated.
+- Added support for 1D, 2D, and 3D neighborhood attention (natten) via
+  `physicsnemo.nn.functional` interface, with full `ShardTensor` support.
+- Added derivative functionals in `physicsnemo.nn.functional` for
+  `uniform_grid_gradient`, `rectilinear_grid_gradient`,
+  `spectral_grid_gradient`, `meshless_fd_derivatives`, `mesh_lsq_gradient`,
+  and `mesh_green_gauss_gradient`.
+- Adds `physicsnemo.sym` module for symbolic PDE residual computation
+  (`PhysicsInformer`). Users define PDEs via SymPy and select a gradient method
+  (`autodiff`, `finite_difference`, `spectral`, `meshless_finite_difference`,
+  `least_squares`); spatial derivatives are computed automatically using the
+  `nn.functional.derivatives` functionals.
+- Ports all physics-informed examples (LDC PINNs, Darcy, Stokes MGN, DoMINO,
+  datacenter, xaeronet, MHD/SWE PINO) to the new `physicsnemo.sym` interface,
+  replacing the separate `physicsnemo-sym` package dependency. Geometry is now
+  handled via `physicsnemo.mesh` and PyVista.
+- Added geometry functionals in `physicsnemo.nn.functional` for
+  `mesh_poisson_disk_sample`, `mesh_to_voxel_fraction`, and
+  `signed_distance_field`.
+- Adds embedded OOD guardrail `OODGuard` at
+  `physicsnemo.experimental.guardrails.embedded`, optionally
+  wired into `GeoTransolver` via a new `guard_config` constructor argument.
+  The guard calibrates per-channel global bounds and a geometry-latent
+  kNN threshold during training, and emits warnings on out-of-distribution
+  inputs at inference.
+- In PhysicsNeMo-Mesh, `physicsnemo.mesh.geometry` now publicly exposes
+  `stable_angle_between_vectors` and `compute_triangle_angles` (previously
+  only available via the private `physicsnemo.mesh.curvature._utils`).
+- PhysicsNeMo Datapipes enables reproducability through `torch.generator`
+  utilities.
+- PhysicsNeMo Datapipes now supports `physicsnemo.mesh.Mesh` and
+  `physicsnemo.mesh.DomainMesh` objects for deserialization, with
+  transformations and utilities for mesh-based datasets.
+- PhysicsNeMo Datapipes now support `MultiDataset` construction,
+  allowing on-the-fly construction of multi-source composite datasets
+  that can be sampled and processed efficiently and coherently
+  as one dataset.
+- PhysicsNeMo Datapipes also support random augmentations for
+  mesh-based datapipes, leveraging `torch.distributions` for
+  broad random distribution support. Mesh and DomainMesh
+  datasets allow random translation, scaling, and rotation
+  of mesh data in coherent ways, compatible with reproducability
+  features of physicsnemo datapipes.
+- Adds a new *unified* training recipe for external aerodynamics
+  that supports training on multiple datasets (DrivaerML, ShiftSUV,
+  HighLiftAeroML, or more, bring your own, mix and match), supports
+  training several different models (Domino, Transolver, GeoTransolver,
+  Flare, GeoTransolver with Flare-attention, bring your own!).  Leverages
+  mesh datasets and non-dimensionalization to enable dataset mixing and
+  matching at runtime.  Train with surface or volume data.
 
-## [1.3.0a0] - 2025-XX-YY
+### Changed
+
+- Improved crash recipe with configurable stats directory.
+- `physicsnemo.mesh.sampling.find_nearest_cells` uses a KNN-backed
+  implementation, and no longer accepts the `bvh=`, `chunk_size=`,
+  `max_rounds=`, or `max_candidates_per_point=` parameters.
+- &#9888;&#65039; **BC-impact (deep imports):** internal `physicsnemo.nn.functional`
+  modules were reorganized by category. Public top-level functional imports are
+  unchanged, but code importing internal module paths directly (for example
+  `physicsnemo.nn.functional.knn` or
+  `physicsnemo.nn.functional.radius_search`) should migrate to
+  `physicsnemo.nn.functional.neighbors.*`.
+- Consolidated Warp interpolation kernels for grid-to-point and point-to-grid
+  backends, and added missing kernel/helper docstrings.
+- In PhysicsNeMo-Mesh, dual-mesh primitives gained closed-form fast paths
+  for triangle meshes embedded in 3D. `compute_circumcenters` is up to
+  ~10000x faster (e.g. 11 s -> ~1 ms on a 360 K-triangle AirFRANS mesh,
+  RTX 4090) by replacing batched `torch.linalg.lstsq` over (2, 3) systems
+  with a closed-form cross product, and `compute_vertex_angles` is up to
+  ~15x faster on the same meshes by replacing the dimension-agnostic
+  Gram-determinant formula with an `atan2(||cross||, dot)` formulation.
+  Anything that depends on these (Gaussian curvature, FEM Laplacian,
+  cotangent weights, Voronoi areas, smoothing) inherits the speedup. See
+  `perf.md` for the full audit.
+- In PhysicsNeMo-Mesh, BVH construction is faster on GPU.
+  `_compute_morton_codes` has a CUDA-specific fused-bits path that
+  eliminates the `n_bits` sequential kernel launches of the previous
+  bit-loop (5-8x speedup on small / medium meshes), and `BVH.from_mesh`
+  reuses the cached `Mesh.cell_centroids` instead of recomputing.
+  End-to-end `BVH.from_mesh` is ~2x faster on a 162 K-tet `cube_volume`
+  mesh.
+- In PhysicsNeMo-Mesh, the topology-dedup APIs
+  (`categorize_facets_by_count`, `find_edges_in_reference`,
+  `remove_duplicate_cells`, `build_adjacency_from_pairs`) gained optional
+  `index_bound` / `n_targets` parameters. When the caller passes a strict
+  upper bound (typically `mesh.n_points` or `mesh.n_cells`), the implicit
+  `tensor.max().item()` GPU sync is avoided and the dedup uses a packed
+  int64 unique (via the new internal `unique_index_tuples`) and a single
+  composite-key argsort. End-to-end `get_boundary_edges` and
+  `cell_to_cells_adjacency` are ~2x faster on practical-size unstructured
+  meshes (e.g. 360 K-triangle AirFRANS).
+- &#9888;&#65039; **BC-impact (deep imports):** in PhysicsNeMo-Mesh,
+  `stable_angle_between_vectors` and `compute_triangle_angles` moved from
+  `physicsnemo.mesh.curvature._utils` to `physicsnemo.mesh.geometry._angles`.
+  The old private path is no longer available; use the
+  `physicsnemo.mesh.geometry` re-export instead.
+
+### Deprecated
+
+- `physicsnemo.utils.mesh` is deprecated and will be removed in v2.2.0. For
+  isosurface extraction, use `physicsnemo.mesh.generate.marching_cubes` instead
+  of `sdf_to_stl`. For VTP/OBJ/STL file conversion (`combine_vtp_files`,
+  `convert_tesselated_files_in_directory`), use VTK or PyVista directly.
+
+### Removed
+
+### Fixed
+
+- Fixed functional benchmark plot fallback labeling so unlabeled ASV results use
+  the same key ordering as the benchmark runner.
+- Fixed graph break caused by `FunctionSpec` dispatch (`max(key=)` is not supported by `torch.compile`)
+- Fixed bug in Pangu, FengWu attention window shift for asymmetric longitudes
+- Fixed a bug in `mesh.sampling.find_nearest_cells`, where a mixup between L2 and L-inf norms
+  could cause slightly incorrect nearest-neighbor assignments in highly skewed meshes.
+- Fixed TensorDict key-ordering bug in GLOBE's Barnes-Hut kernel that caused
+  incorrect results when `tensordict >= 0.12` reordered leaves during
+  TensorDict construction from dict literals mixing plain and nested keys.
+- In PhysicsNeMo-Mesh, `from_pyvista` now correctly handles
+  `UnstructuredGrid` inputs in newer `pyvista` versions, looking up
+  cell-type buckets in `cells_dict` with `np.uint8(pv.CellType.X)` keys
+  rather than the `IntEnum` value, and skipping non-numeric VTK arrays
+  (strings, objects) when copying point / cell / field data into the
+  `Mesh` `TensorDict`s instead of failing the conversion.
+- In PhysicsNeMo-Mesh, `safe_eps(dtype)` is now capped at
+  `torch.finfo(dtype).eps`, which fixes a float16 corner case where the
+  previous `tiny ** 0.25` floor exceeded machine epsilon and could
+  corrupt fp16 mesh quantities. Ad-hoc `+ 1e-10` denominators in
+  `smooth_laplacian` and `compute_quality_metrics` have been replaced
+  with the dtype-aware `.clamp(min=safe_eps(dtype))` to avoid silently
+  zeroing fp16 weights.
+- Fixed issues with physicsnemo.nn.functional's `radius_search` that
+  caused crashes when used with torch.compile.
+
+### Security
+
+### Dependencies
+
+- Increments minimum viable PyTorch version to `torch>=2.5.0` to support FSDP better
+
+## [2.0.0] - 2026-03-09
+
+### Added
+
+- Refactored diffusion preconditioners in
+  `physicsnemo.diffusion.preconditioners` relying on a new abstract base class
+  `BaseAffinePreconditioner` for preconditioning schemes using affine
+  transformations. Existing preconditioners (`VPPrecond`, `VEPrecond`,
+  `iDDPMPrecond`, `EDMPrecond`) reimplemented based on this new interface.
+- New `physicsnemo.experimental.nn.symmetry` module that implements building
+  blocks that preserve 2D and 3D rotational equivariance using a
+  grid-based layout for efficient GPU parallelization, and an emphasis on
+  compact `einsum` operations.
+- Flare attention support for both Transolver and GeoTransolver models.
+
+### Changed
+
+- PhysicsNemo v2.0 contains significant reorganization of tools.  Please see
+  the v2.0-MIGRATION-GUIDE.md to understand what has changed and why.
+- DiT (Diffusion Transformer) has been moved from `physicsnemo.experimental.models.dit`
+  to `physicsnemo.models.dit`.
+
+### Fixed
+
+- Shape mistmatch bug in the Lennard Jones example
+
+### Dependencies
+
+- CUDA backend is now selected via orthogonal `cu12` / `cu13` extras rather
+  than being hardcoded to CUDA 13. Feature extras (`nn-extras`, `utils-extras`,
+  etc.) are now CUDA-agnostic and can be combined with either backend, e.g.
+  `pip install "nvidia-physicsnemo[cu13,nn-extras]"`. When neither `cu12` nor
+  `cu13` is specified, PyTorch is installed from PyPI using its default build
+  (currently CUDA 12.8 on Linux). For development with `uv`, use
+  `uv sync --extra cu13` (or `--extra cu12`) to select the backend.
+
+## [1.3.0] - 2025-11-17
 
 ### Added
 
@@ -42,6 +243,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to compose and define an active learning workflow is provided in `examples/active_learning`.
   The `moons` example provides a minimal (pedagogical) composition that is meant to
   illustrate how to define the necessary parts of the workflow.
+- Added a new example for temporal interpolation of weather forecasts using ModAFNO.
+  Accessible in `examples/weather/temporal_interpolation`.
 
 ### Changed
 
@@ -63,10 +266,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   experimental DiT architecture
 - Improved Transolver training recipe's configuration for checkpointing and normalization.
 - Bumped `multi-storage-client` version to 0.33.0 with rust client.
-
-### Deprecated
-
-### Removed
+- Improved configuration for DLWP Healpix (checkpoint directory) and GraphCast (W&B settings).
 
 ### Fixed
 
@@ -75,10 +275,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the issue with incorrect handling of files with consecutive runs of
   `combine_stl_solids.py` in the X-MGN recipe.
 - Fixed the `RuntimeError: Worker data receiving interrupted` error in the datacenter example.
-
-### Security
-
-### Dependencies
 
 ## [1.2.0] - 2025-08-26
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -33,7 +33,6 @@ import re
 from typing import Literal, Any
 from tabulate import tabulate
 
-import apex
 import numpy as np
 import hydra
 from hydra.utils import to_absolute_path
@@ -43,6 +42,7 @@ from omegaconf import DictConfig, OmegaConf
 from physicsnemo.utils.memory import unified_gpu_memory
 
 import torchinfo
+import torch
 import torch.distributed as dist
 from torch.distributed.fsdp import fully_shard
 from torch.distributed.tensor import distribute_module
@@ -57,15 +57,15 @@ import torch.cuda.nvtx as nvtx
 
 
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.launch.utils import load_checkpoint, save_checkpoint
-from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
+from physicsnemo.utils import load_checkpoint, save_checkpoint
+from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
 
 from physicsnemo.datapipes.cae.domino_datapipe import (
     DoMINODataPipe,
     create_domino_dataset,
 )
 from physicsnemo.models.domino.model import DoMINO
-from physicsnemo.utils.domino.utils import *
+from physicsnemo.models.domino.utils import create_directory
 
 from utils import ScalingFactors, get_keys_to_read, coordinate_distributed_environment
 
@@ -98,21 +98,19 @@ def validation_step(
     loss_fn_type=None,
     vol_loss_scaling=None,
     surf_loss_scaling=None,
-    first_deriv: torch.nn.Module | None = None,
     eqn: Any = None,
     bounding_box: torch.Tensor | None = None,
     vol_factors: torch.Tensor | None = None,
     add_physics_loss=False,
     autocast_enabled=None,
 ):
+    """Run one validation epoch and return aggregate metrics."""
     dm = DistributedManager()
     running_vloss = 0.0
     with torch.no_grad():
         metrics = None
 
-        for i_batch, sample_batched in enumerate(dataloader):
-            sampled_batched = dict_to_device(sample_batched, device)
-
+        for i_batch, sampled_batched in enumerate(dataloader):
             with autocast("cuda", enabled=autocast_enabled, cache_enabled=False):
                 if add_physics_loss:
                     prediction_vol, prediction_surf = model(
@@ -129,7 +127,6 @@ def validation_step(
                     integral_scaling_factor,
                     surf_loss_scaling,
                     vol_loss_scaling,
-                    first_deriv,
                     eqn,
                     bounding_box,
                     vol_factors,
@@ -187,7 +184,6 @@ def train_epoch(
     loss_fn_type,
     vol_loss_scaling=None,
     surf_loss_scaling=None,
-    first_deriv: torch.nn.Module | None = None,
     eqn: Any = None,
     bounding_box: torch.Tensor | None = None,
     vol_factors: torch.Tensor | None = None,
@@ -197,6 +193,7 @@ def train_epoch(
     grad_clip_enabled=None,
     grad_max_norm=None,
 ):
+    """Run one training epoch with optional physics loss."""
     dm = DistributedManager()
 
     running_loss = 0.0
@@ -230,7 +227,6 @@ def train_epoch(
                     integral_scaling_factor,
                     surf_loss_scaling,
                     vol_loss_scaling,
-                    first_deriv,
                     eqn,
                     bounding_box,
                     vol_factors,
@@ -326,6 +322,7 @@ def train_epoch(
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    """Entry point for DoMINO training."""
     ######################################################
     # initialize distributed manager
     ######################################################
@@ -387,18 +384,80 @@ def main(cfg: DictConfig) -> None:
 
     if add_physics_loss:
         from physicsnemo.sym.eq.pde import PDE
-        from physicsnemo.sym.eq.ls.grads import FirstDeriv
-        from physicsnemo.sym.eq.pdes.navier_stokes import IncompressibleNavierStokes
-    else:
-        PDE = FirstDeriv = IncompressibleNavierStokes = None
+        from sympy import Function, Number, Symbol
+
+        class IncompressibleNavierStokes(PDE):
+            """Incompressible Navier-Stokes with variable viscosity (stress tensor form).
+
+            Reference: https://web.stanford.edu/class/me469b/handouts/incompressible.pdf
+            """
+
+            def __init__(self, rho=1.0, nu="nu", dim=3, time=False):
+                """Initialize with density *rho* and viscosity *nu*."""
+                self.dim = dim
+                x, y, z = Symbol("x"), Symbol("y"), Symbol("z")
+                iv = {"x": x, "y": y, "z": z}
+                if dim == 2:
+                    iv.pop("z")
+                u = Function("u")(*iv.values())
+                v = Function("v")(*iv.values())
+                w = Function("w")(*iv.values()) if dim == 3 else Number(0)
+                p = Function("p")(*iv.values())
+                if isinstance(nu, str):
+                    nu = Function(nu)(*iv.values())
+                elif isinstance(nu, (float, int)):
+                    nu = Number(nu)
+                mu = rho * nu
+
+                tau_xx__x = 2 * mu * u.diff(x, 2) + 2 * mu.diff(x) * u.diff(x)
+                tau_xy__y = mu * (u.diff(y, 2) + v.diff(x).diff(y)) + mu.diff(y) * (
+                    u.diff(y) + v.diff(x)
+                )
+                tau_xz__z = mu * (u.diff(z, 2) + w.diff(x).diff(z)) + mu.diff(z) * (
+                    u.diff(z) + w.diff(x)
+                )
+                tau_xy__x = mu * (u.diff(y).diff(x) + v.diff(x, 2)) + mu.diff(x) * (
+                    u.diff(y) + v.diff(x)
+                )
+                tau_yy__y = 2 * mu * v.diff(y, 2) + 2 * mu.diff(y) * v.diff(y)
+                tau_yz__z = mu * (v.diff(z, 2) + w.diff(y).diff(z)) + mu.diff(z) * (
+                    v.diff(z) + w.diff(y)
+                )
+                tau_xz__x = mu * (u.diff(z).diff(x) + w.diff(x, 2)) + mu.diff(x) * (
+                    u.diff(z) + w.diff(x)
+                )
+                tau_yz__y = mu * (v.diff(z).diff(y) + w.diff(y, 2)) + mu.diff(y) * (
+                    v.diff(z) + w.diff(y)
+                )
+                tau_zz__z = 2 * mu * w.diff(z, 2) + 2 * mu.diff(z) * w.diff(z)
+
+                self.equations = {
+                    "continuity": u.diff(x) + v.diff(y) + w.diff(z),
+                    "momentum_x": rho * (u * u.diff(x) + v * u.diff(y) + w * u.diff(z))
+                    + p.diff(x)
+                    - tau_xx__x
+                    - tau_xy__y
+                    - tau_xz__z,
+                    "momentum_y": rho * (u * v.diff(x) + v * v.diff(y) + w * v.diff(z))
+                    + p.diff(y)
+                    - tau_xy__x
+                    - tau_yy__y
+                    - tau_yz__z,
+                    "momentum_z": rho * (u * w.diff(x) + v * w.diff(y) + w * w.diff(z))
+                    + p.diff(z)
+                    - tau_xz__x
+                    - tau_yz__y
+                    - tau_zz__z,
+                }
+                if dim == 2:
+                    self.equations.pop("momentum_z")
 
     # Initialize physics components conditionally
-    first_deriv = None
     eqn = None
     if add_physics_loss:
-        first_deriv = FirstDeriv(dim=3, direct_input=True)
-        eqn = IncompressibleNavierStokes(rho=1.226, nu="nu", dim=3, time=False)
-        eqn = eqn.make_nodes(return_as_dict=True)
+        ns = IncompressibleNavierStokes(rho=1.226, nu="nu", dim=3, time=False)
+        computations = ns.make_computations()
+        eqn = {c.outputs[0]: c for c in computations}
 
     # The bounding box is used in calculating the physics loss:
     bounding_box = None
@@ -629,7 +688,6 @@ def main(cfg: DictConfig) -> None:
             loss_fn_type=cfg.model.loss_function,
             vol_loss_scaling=cfg.model.vol_loss_scaling,
             surf_loss_scaling=surface_scaling_loss,
-            first_deriv=first_deriv,
             eqn=eqn,
             bounding_box=bounding_box,
             vol_factors=vol_factors,
@@ -658,7 +716,6 @@ def main(cfg: DictConfig) -> None:
             loss_fn_type=cfg.model.loss_function,
             vol_loss_scaling=cfg.model.vol_loss_scaling,
             surf_loss_scaling=surface_scaling_loss,
-            first_deriv=first_deriv,
             eqn=eqn,
             bounding_box=bounding_box,
             vol_factors=vol_factors,

@@ -2,11 +2,13 @@
 
 <!-- markdownlint-disable -->
 
-📝 NVIDIA Modulus has been renamed to NVIDIA PhysicsNeMo
+📝 NVIDIA PhysicsNeMo is undergoing an update to v2.0 - all the features, with easier installation and integration to external packages.  See the [migration guide](https://github.com/NVIDIA/physicsnemo/blob/main/v2.0-MIGRATION-GUIDE.md) for more details!
 
 [![Project Status: Active - The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![GitHub](https://img.shields.io/github/license/NVIDIA/physicsnemo)](https://github.com/NVIDIA/physicsnemo/blob/master/LICENSE.txt)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Install CI](https://github.com/NVIDIA/physicsnemo/actions/workflows/install-ci.yml/badge.svg?event=schedule)](https://github.com/NVIDIA/physicsnemo/actions/workflows/install-ci.yml)
+
 <!-- markdownlint-enable -->
 [**NVIDIA PhysicsNeMo**](#what-is-physicsnemo)
 | [**Documentation**](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/index.html)
@@ -63,12 +65,11 @@ provides built-in composable modules that are packaged into a few key components
 <!-- markdownlint-disable -->
 Component | Description |
 ---- | --- |
-[**physicsnemo.models**](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/api/physicsnemo.models.html) | A collection of optimized, customizable, and easy-to-use families of model architectures such as Neural Operators, Graph Neural Networks, Diffusion models, Transformer models, and many more|
+[**physicsnemo.models**](https://docs.nvidia.com/physicsnemo/latest/user-guide/model_architectures.html) ( [More Details](https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api_models.html)) | A collection of optimized, customizable, and easy-to-use families of model architectures such as Neural Operators, Graph Neural Networks, Diffusion models, Transformer models, and many more|
 [**physicsnemo.datapipes**](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/api/physicsnemo.datapipes.html) | Optimized and scalable built-in data pipelines fine-tuned to handle engineering and scientific data structures like point clouds, meshes, etc.|
 [**physicsnemo.distributed**](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/api/physicsnemo.distributed.html) | A distributed computing sub-module built on top of `torch.distributed` to enable parallel training with just a few steps|
 [**physicsnemo.curator**](https://github.com/NVIDIA/physicsnemo-curator) | A sub-module to streamline and accelerate the process of data curation for engineering datasets|
-[**physicsnemo.sym.geometry**](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-sym/user_guide/features/csg_and_tessellated_module.html) | A sub-module to handle geometry for DL training using Constructive Solid Geometry modeling and CAD files in STL format|
-[**physicsnemo.sym.eq**](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-sym/user_guide/features/nodes.html) | A sub-module to use PDEs in your DL training with several implementations of commonly observed equations and easy ways for customization|
+[**physicsnemo.sym**](docs/api/physicsnemo.sym.rst) | Symbolic PDE residual computation — define equations via SymPy and compute physics-informed losses with automatic spatial derivatives (install with `pip install "nvidia-physicsnemo[sym]"`)|
 <!-- markdownlint-enable -->
 
 For a complete list, refer to the PhysicsNeMo API documentation for
@@ -108,7 +109,7 @@ physics-informed machine learning (ML) models can be trained quickly and effecti
 The framework includes support for advanced
 [optimization utilities](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/api/physicsnemo.utils.html#module-physicsnemo.utils.capture),
 [tailor-made datapipes](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/api/physicsnemo.datapipes.html),
-and [validation utilities](https://github.com/NVIDIA/physicsnemo-sym/tree/main/physicsnemo/sym/eq)
+and [symbolic PDE utilities](physicsnemo/sym/)
 to enhance end-to-end training speed.
 
 ### A Suite of Physics-Informed ML Models
@@ -117,25 +118,25 @@ PhysicsNeMo offers a library of state-of-the-art models specifically designed
 for Physics-ML applications. Users can build any model architecture by using the underlying
 PyTorch layers and combining them with curated PhysicsNeMo layers.
 
-The [Model Zoo](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/api/physicsnemo.models.html#model-zoo)
+The [Model Zoo](https://docs.nvidia.com/physicsnemo/latest/user-guide/model_architectures.html)
 includes optimized implementations of families of model architectures such as
 Neural Operators:
 
 - [Fourier Neural Operators (FNOs)](physicsnemo/models/fno)
-- [DeepONet](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-sym/user_guide/neural_operators/deeponet.html)
+- [DeepONet](examples/cfd/darcy_physics_informed/)
 - [DoMINO](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/examples/cfd/external_aerodynamics/domino/readme.html)
-- [Graph Neural Networks (GNNs)](physicsnemo/models/gnn_layers)
-- [MeshGraphNet](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/examples/cfd/vortex_shedding_mgn/readme.html)
-- [MeshGraphNet for Lagrangian](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/examples/cfd/lagrangian_mgn/readme.html)
-- [XAeroNet](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/examples/cfd/external_aerodynamics/xaeronet/readme.html)
+- [Graph Neural Networks (GNNs)](physicsnemo/nn/module/gnn_layers)
+- [MeshGraphNet](https://github.com/NVIDIA/physicsnemo/tree/main/examples/cfd/vortex_shedding_mgn)
+- [MeshGraphNet for Lagrangian](https://github.com/NVIDIA/physicsnemo/tree/main/examples/cfd/lagrangian_mgn)
+- [XAeroNet](https://github.com/NVIDIA/physicsnemo/tree/main/examples/cfd/external_aerodynamics/xaeronet)
 - [Diffusion Models](physicsnemo/models/diffusion)
-- [Correction Diffusion Model](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/examples/generative/corrdiff/readme.html)
-- [DDPM](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/examples/generative/diffusion/readme.html)
-- [PhysicsNeMo GraphCast](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-core/examples/weather/graphcast/readme.html)
+- [Correction Diffusion Model](https://github.com/NVIDIA/physicsnemo/tree/main/examples/weather/corrdiff)
+- [DDPM](https://github.com/NVIDIA/physicsnemo/tree/main/examples/cfd/flow_reconstruction_diffusion)
+- [PhysicsNeMo GraphCast](https://github.com/NVIDIA/physicsnemo/tree/main/examples/weather/graphcast)
 - [Transsolver](https://github.com/NVIDIA/physicsnemo/tree/main/examples/cfd/darcy_transolver)
 - [RNNs](https://github.com/NVIDIA/physicsnemo/tree/main/physicsnemo/models)
 - [SwinVRNN](https://github.com/NVIDIA/physicsnemo/tree/main/physicsnemo/models/swinvrnn)
-- [Physics-Informed Neural Networks (PINNs)](https://docs.nvidia.com/deeplearning/physicsnemo/physicsnemo-sym/user_guide/foundational/1d_wave_equation.html)
+- [Physics-Informed Neural Networks (PINNs)](examples/cfd/ldc_pinns/)
 
 And many others.
 
@@ -331,37 +332,83 @@ way is to start with a reference sample and then update it for your own use case
 
 ## Installation
 
-The following instructions help you install the base PhysicsNeMo modules to get started.
-There are additional optional dependencies for specific models that are listed under
-[optional dependencies](#optional-dependencies).
-The training recipes are not packaged into the pip wheels or the container to keep the
-footprint low. We recommend users clone the appropriate training recipes and use them
-as a starting point. These training recipes may require additional example-specific dependencies,
-as indicated through their associated `requirements.txt` file.
+You can install PhysicsNeMo in two supported ways: **via pip** (native pip or
+**uv**) or by using the **NVIDIA container image**. Choose the method that fits your
+environment and workflow.
+
+The following instructions cover the base PhysicsNeMo modules. Optional dependencies
+are listed in [`pyproject.toml`](./pyproject.toml). The [training recipes](./examples)
+are not bundled in the pip wheels or container; clone the repo and use the examples
+as a starting point. Many examples have a `requirements.txt` for extra dependencies.
+
+### CUDA Backend Selection
+
+> **Important:** To get GPU-accelerated RAPIDS packages (cuML, pylibraft, cupy)
+> and a CUDA-matched PyTorch build, you **must** include either `cu13` or `cu12`
+> when installing. Feature extras like `nn-extras` and `utils-extras` provide
+> additional non-CUDA packages (scipy, natten, wandb, etc.) but do not include
+> RAPIDS dependencies on their own.
+
+PhysicsNeMo supports both CUDA 12 and CUDA 13 backends. The backend is selected
+via an extra that is orthogonal to the feature extras - combine them freely:
+
+| Extra | What it provides |
+| --- | --- |
+| `cu13` | PyTorch (CUDA 13.0), cuML-cu13, pylibraft-cu13, cupy-cuda13x |
+| `cu12` | PyTorch (CUDA 12.8), cuML-cu12, pylibraft-cu12, cupy-cuda12x |
+| *(neither)* | PyTorch from PyPI (default build), **no RAPIDS packages** |
 
 ### PyPI
 
-The recommended method for installing the latest version of PhysicsNeMo is using PyPI:
+Install the latest version from PyPI:
 
 ```Bash
 pip install nvidia-physicsnemo
+python -c "import physicsnemo; print('PhysicsNeMo version:', physicsnemo.__version__)"
 ```
 
-The installation can be verified by running the [Hello World](#hello-world) example.
+To install with a specific CUDA backend and optional feature extras:
 
-#### Optional Dependencies
+```Bash
+# CUDA 13 backend with nn-extras
+pip install "nvidia-physicsnemo[cu13,nn-extras]"
 
-PhysicsNeMo has many optional dependencies that are used in specific components.
-When using pip, all dependencies used in PhysicsNeMo can be installed with
-`pip install nvidia-physicsnemo[all]`. If you are developing PhysicsNeMo, developer dependencies
-can be installed using `pip install nvidia-physicsnemo[dev]`. Otherwise, additional dependencies
-can be installed on a case-by-case basis. Detailed information on installing the
-optional dependencies can be found in the
-[Getting Started Guide](https://docs.nvidia.com/deeplearning/physicsnemo/getting-started/index.html).
+# CUDA 12 backend with nn-extras
+pip install "nvidia-physicsnemo[cu12,nn-extras]"
+```
+
+Other feature extras (`utils-extras`, `mesh-extras`, `model-extras`,
+`datapipes-extras`, `gnns`) can be combined in the same way.
+
+The installation can also be verified by running the [Hello World](#hello-world) example.
+
+### uv
+
+For development or to run examples from source, you can use [uv](https://docs.astral.sh/uv/)
+to clone the repository and sync dependencies:
+
+```Bash
+git clone https://github.com/NVIDIA/physicsnemo.git
+cd physicsnemo
+uv sync --extra cu13
+uv run python -c "import physicsnemo; print('PhysicsNeMo version:', physicsnemo.__version__)"
+```
+
+To install with optional feature extras (e.g., `nn-extras`):
+
+```Bash
+uv sync --extra cu13 --extra nn-extras
+```
+
+For a CUDA 12 environment, replace `cu13` with `cu12`:
+
+```Bash
+uv sync --extra cu12 --extra nn-extras
+```
 
 ### NVCR Container
 
-The recommended PhysicsNeMo Docker image can be pulled from the
+The PhysicsNeMo Docker image can be pulled from the
 [NVIDIA Container Registry](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/containers/physicsnemo)
 (refer to the NGC registry for the latest tag):
 
@@ -382,9 +429,7 @@ pip install warp-lang # install NVIDIA Warp to run the Darcy example
 python train_fno_darcy.py
 ```
 
-## From Source
-
-### Package
+### From Source
 
 For a local build of the PhysicsNeMo Python package from source, use:
 
@@ -393,9 +438,17 @@ git clone git@github.com:NVIDIA/physicsnemo.git && cd physicsnemo
 
 pip install --upgrade pip
 pip install .
+python -c "import physicsnemo; print('PhysicsNeMo version:', physicsnemo.__version__)"
 ```
 
-### Source Container
+For editable installs, testing your changes locally, and contribution workflows,
+see the [Customizing PhysicsNeMo](https://docs.nvidia.com/physicsnemo/latest/resources/customization_guide.html)
+guide in the documentation. See also the [contributing guidelines](CONTRIBUTING.md)
+for pull requests, coding style, and CI, and the
+[developer wiki](https://github.com/NVIDIA/physicsnemo/wiki) for community and
+contributing overview.
+
+### Building Docker from Source
 
 To build the PhysicsNeMo Docker image:
 
@@ -415,8 +468,12 @@ docker build -t physicsnemo:ci \
 
 Alternatively, you can run `make container-ci`.
 
-Currently, only `linux/amd64` and `linux/arm64` platforms are supported. If using
-`linux/arm64`, some dependencies like `warp-lang` might not install correctly.
+### Platform Support
+
+For pip or uv installation, Linux, macOS (ARM), and Windows are supported.
+
+Docker containers are available for `linux/amd64` and `linux/arm64` platforms only.
+If using `linux/arm64`, some dependencies like `warp-lang` might not install correctly.
 
 ## PhysicsNeMo Migration Guide
 
@@ -451,8 +508,12 @@ PhysicsNeMo is an open-source collaboration, and its success is rooted in commun
 contributions to further the field of Physics-ML. Thank you for contributing to the
 project so others can build on top of your contributions.
 
-For guidance on contributing to PhysicsNeMo, please refer to the
-[contributing guidelines](CONTRIBUTING.md).
+For guidance on contributing to PhysicsNeMo, see the [contributing guidelines](CONTRIBUTING.md)
+(pull requests, coding style, CI).
+For install-from-source steps, editable installs, and testing your changes, see
+the [Customizing PhysicsNeMo](https://docs.nvidia.com/physicsnemo/latest/resources/customization_guide.html)
+guide in the documentation. For community and contributing overview, see the
+[developer wiki](https://github.com/NVIDIA/physicsnemo/wiki).
 
 ## Cite PhysicsNeMo
 

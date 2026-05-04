@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -26,11 +26,11 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from physicsnemo import Module
 from physicsnemo.active_learning import protocols as p
+from physicsnemo.core import Module
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.launch.logging import LaunchLogger
 from physicsnemo.utils.capture import StaticCaptureEvaluateNoGrad, StaticCaptureTraining
+from physicsnemo.utils.logging import LaunchLogger
 
 __all__ = ["DefaultTrainingLoop"]
 

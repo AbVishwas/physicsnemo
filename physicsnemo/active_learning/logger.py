@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -24,11 +24,7 @@ from pathlib import Path
 from threading import local
 from typing import Any
 
-try:
-    from termcolor import colored
-except ImportError:
-    colored = None
-
+from termcolor import colored
 
 # Thread-local storage for context information
 _context_storage = local()

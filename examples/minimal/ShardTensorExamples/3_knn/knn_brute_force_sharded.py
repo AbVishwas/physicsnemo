@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -15,16 +15,11 @@
 # limitations under the License.
 
 import torch
-import torch.distributed as dist
 import time
 
-from physicsnemo.distributed import DistributedManager, scatter_tensor, ShardTensor
-from torch.distributed.tensor.placement_types import Shard, Replicate
-
-from physicsnemo.distributed.shard_utils.ring import (
-    perform_ring_iteration,
-    RingPassingConfig,
-)
+from physicsnemo.distributed import DistributedManager
+from physicsnemo.domain_parallel import scatter_tensor
+from torch.distributed.tensor.placement_types import Shard
 
 # This time, let's make two moderately large tensors since we'll have to, at least briefly,
 # construct a tensor of their point-by-point difference.
@@ -41,6 +36,21 @@ b = torch.randn(N_target_points, 3, device=dm.device)
 
 
 def knn(x, y, n):
+    """Brute-force k-nearest-neighbors search.
+
+    For every point in ``y``, finds the ``n`` closest points in ``x`` by
+    computing all pairwise Euclidean distances and selecting the smallest.
+
+    Args:
+        x: Reference point cloud, shape ``(M, D)``.
+        y: Query point cloud, shape ``(N, D)``.
+        n: Number of nearest neighbors to return per query point.
+
+    Returns:
+        Tuple of (neighbors, distances) where:
+        - neighbors: Coordinates of the nearest points, shape ``(N, n, D)``.
+        - distances: Euclidean distances to those points, shape ``(N, n)``.
+    """
     # Return the n nearest neighbors in x for each point in y.
 
     # First, compute the pairwise difference between all points in x and y.

@@ -18,7 +18,7 @@
 #This is not wired in perfectly for 3d case yet, currently only shows correct comparison for reynolds stresses for a fixed y plane during training.
 unconditional:
   dns_dir: ${paths.dataset}
-  pred_dir: /home/jovyan/workspace/projects/uflow-diffusion-3d_Abhijeet/outputs/uf_3d_ds4_bs32_1222_mc128/2025-06-04_13-19/generated/unconditional/generated_samples.h5 #${paths.generated}/uncond
+  pred_dir: ${paths.generated}/unconditional
   stats_eval_results_dir: ${paths.evaluation}/uncond
   predicted_snaps: 4000
   eval_ckpt: 300

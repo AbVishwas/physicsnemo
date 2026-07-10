@@ -37,14 +37,10 @@ hp:
 perf:
     device: "cuda"
     fp_optimizations: "fp32"
-    # Floating point mode, one of ["fp32", "amp-fp16", "amp-bf16"]
-    # "amp-{fp16,bf16}" activates Automatic Mixed Precision (AMP) with {float16,bfloat16}
-    # NOTE: plain "fp16" (non-AMP) is not supported by this port -- the old
-    # EDMPrecond3D took a `use_fp16` flag and did its own internal casting;
-    # the new EDMPreconditioner has no such hook and relies on autocast.
-    # NOTE: "amp-*" modes currently crash against DiffusionUNet3D: none of
-    # its Linear layers are constructed with amp_mode=True, so
-    # torch.autocast trips physicsnemo's own safety check. Defaulting to fp32 until it's resolved upstream.
+    # Floating-point mode: one of ["fp32", "amp-fp16", "amp-bf16"]. Default fp32
+    # (no AMP). Set "amp-bf16" (or "amp-fp16") to enable torch.autocast mixed
+    # precision. Plain non-AMP "fp16" is not supported (reduced precision relies
+    # on autocast).
     compile: false
     dataloader_workers: 4
     # DataLoader worker processes

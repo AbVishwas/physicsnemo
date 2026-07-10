@@ -51,6 +51,13 @@ os.environ.setdefault(
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    """Train the 3D diffusion prior, then periodically sample and evaluate.
+
+    Builds the ``DiffusionUNet3D`` + ``EDMPreconditioner`` stack and trains it
+    with ``MSEDSMLoss`` over the urban-flow dataset. On the configured cadence
+    it checkpoints, draws unconditional samples, and logs a Reynolds-stress
+    comparison to Weights & Biases. Configured through Hydra (see ``conf/``).
+    """
     warnings.filterwarnings(
         "ignore", message="Grad strides do not match bucket view strides"
     )  # https://github.com/pytorch/pytorch/issues/47163
@@ -64,12 +71,11 @@ def main(cfg: DictConfig) -> None:
     dist, logger, logger0 = setup_distributed_and_logging(cfg)
 
     fp_optimizations = cfg.train.perf.fp_optimizations
-    datatype = get_precision(fp_optimizations)
     enable_amp = fp_optimizations.startswith("amp")  # Flag for mixed precision
-    # NOTE: pure "fp16" (non-AMP) mode isn't wired up here. The old
-    # EDMPrecond3D took a `use_fp16` flag and did its own internal fp16 cast;
-    # EDMPreconditioner has no such hook and relies entirely on
-    # `torch.autocast`. Only amp-* modes are exercised by this port.
+    amp_dtype = get_precision(fp_optimizations)  # autocast compute dtype
+    # NOTE: pure "fp16" (non-AMP) is not supported here; reduced precision runs
+    # through torch.autocast. Supported modes: "fp32" (default) and
+    # "amp-{bf16,fp16}".
 
     logger.info(f"Saving the outputs in {os.getcwd()}")
 
@@ -208,12 +214,13 @@ def main(cfg: DictConfig) -> None:
             # Compute & accumulate gradients
             optimizer.zero_grad(set_to_none=True)
 
-            batch = move_batch_to_device(batch, device=dist.device, dtype=datatype)
+            # Keep inputs in fp32; torch.autocast casts eligible ops to the AMP
+            # dtype internally when enabled (standard bf16/fp16 AMP practice).
+            batch = move_batch_to_device(batch, device=dist.device, dtype=torch.float32)
 
-            with torch.autocast("cuda", dtype=datatype, enabled=enable_amp):
+            with torch.autocast("cuda", dtype=amp_dtype, enabled=enable_amp):
                 # MSEDSMLoss samples t, adds noise, calls the (precond-wrapped)
-                # model, and returns the mean-reduced loss directly -- no
-                # manual .sum()/batch_size_per_gpu needed like the old EDMLoss3D.
+                # model, and returns the mean-reduced loss directly.
                 loss = loss_fn(batch["field"], condition=None)
             loss.backward()
 

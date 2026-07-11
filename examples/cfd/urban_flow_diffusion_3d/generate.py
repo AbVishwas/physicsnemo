@@ -16,23 +16,30 @@
 
 import hydra
 from omegaconf import DictConfig
-from physicsnemo import Module
-from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
-
+from src.gen_utils.gen_helpers import generate_samples
 from src.train_utils.train_helpers import (
-    set_seed,
     configure_cuda_for_consistent_precision,
+    set_seed,
     setup_distributed_and_logging,
 )
-from src.gen_utils.gen_helpers import generate_samples
+
+from physicsnemo import Module
+from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
 
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    """Generate unconditional samples from a trained checkpoint.
+
+    Loads the EDM-preconditioned model from the configured checkpoint and draws
+    unconditional samples via ``generate_samples``, writing them to disk.
+    Configured through Hydra (see ``conf/``).
+    """
     dist, logger, logger0 = setup_distributed_and_logging(cfg)
     set_seed(dist.rank)
     configure_cuda_for_consistent_precision()
 
+    logger.info(f"Loading checkpoint: {cfg.generate.io.inf_ckpt_filepath}")
     model = Module.from_checkpoint(cfg.generate.io.inf_ckpt_filepath)
     model.eval().to(dist.device)
 

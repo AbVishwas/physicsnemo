@@ -14,27 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, time, warnings
-import h5py, hydra, psutil, torch, tqdm, wandb
+import os
+import time
+import warnings
+
+import h5py
+import hydra
 import matplotlib.pyplot as plt
-
-from omegaconf import DictConfig, OmegaConf
-from physicsnemo import Module
-from physicsnemo.utils.checkpoint import load_checkpoint, save_checkpoint
-from physicsnemo.experimental.models.diffusion_unets import DiffusionUNet3D
-from physicsnemo.diffusion.preconditioners import EDMPreconditioner
-from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
-from physicsnemo.diffusion.metrics.losses import MSEDSMLoss
-from torch.nn.parallel import DistributedDataParallel
-
-from src.utils import deep_clean_omegaconf
-from src.metrics.statistics import stat_eval_plot_reynolds_stress_planes
+import psutil
+import torch
+import tqdm
+from omegaconf import DictConfig
 from src.dataloaders.dataset_builder import get_dataset_and_dataloader
 from src.dataloaders.dataset_utils import (
     get_precision,
     move_batch_to_device,
     select_random_field,
 )
+from src.gen_utils.gen_helpers import generate_samples, pack_uncond_preds
+from src.metrics.statistics import stat_eval_plot_reynolds_stress_planes
 from src.train_utils.train_helpers import (
     configure_cuda_for_consistent_precision,
     handle_and_clip_gradients,
@@ -42,11 +40,15 @@ from src.train_utils.train_helpers import (
     set_seed,
     setup_distributed_and_logging,
 )
-from src.gen_utils.gen_helpers import generate_samples, pack_uncond_preds
+from src.utils import deep_clean_omegaconf
+from torch.nn.parallel import DistributedDataParallel
 
-os.environ.setdefault(
-    "WANDB_MODE", "online"
-)  # respect an externally-set mode (e.g. "offline")
+from physicsnemo import Module
+from physicsnemo.diffusion.metrics.losses import MSEDSMLoss
+from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
+from physicsnemo.diffusion.preconditioners import EDMPreconditioner
+from physicsnemo.experimental.models.diffusion_unets import DiffusionUNet3D
+from physicsnemo.utils.checkpoint import load_checkpoint, save_checkpoint
 
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
@@ -55,8 +57,10 @@ def main(cfg: DictConfig) -> None:
 
     Builds the ``DiffusionUNet3D`` + ``EDMPreconditioner`` stack and trains it
     with ``MSEDSMLoss`` over the urban-flow dataset. On the configured cadence
-    it checkpoints, draws unconditional samples, and logs a Reynolds-stress
-    comparison to Weights & Biases. Configured through Hydra (see ``conf/``).
+    it checkpoints, draws unconditional samples, and saves a Reynolds-stress
+    comparison plot to the evaluation directory. Progress is logged to the
+    terminal via the PhysicsNeMo ``PythonLogger``. Configured through Hydra
+    (see ``conf/``).
     """
     warnings.filterwarnings(
         "ignore", message="Grad strides do not match bucket view strides"
@@ -107,19 +111,6 @@ def main(cfg: DictConfig) -> None:
     )
     model = EDMPreconditioner(net, sigma_data=cfg.model.model_args.sigma_data)
     noise_scheduler = EDMNoiseScheduler(sigma_data=cfg.model.model_args.sigma_data)
-
-    # Initialize loggers
-    if dist.rank == 0:
-        wandb.init(
-            project="nvidia-physicsnemo-diffusion",
-            config=OmegaConf.to_container(cfg, resolve=True),
-            name=cfg.train.wandb_params.run_name,
-        )
-        wandb.watch(
-            model,
-            log=cfg.train.wandb_params.log,
-            log_freq=cfg.train.wandb_params.log_freq,
-        )
 
     # Ensure contiguous memory layout before initializing DDP
     for param in model.parameters():
@@ -180,7 +171,9 @@ def main(cfg: DictConfig) -> None:
 
     batch_size_per_gpu = cfg.train.hp.batch_size_per_gpu
     logger0.info(
-        f"Training for {cfg.train.hp.epochs} epochs...Starting from epoch {epoch}"
+        f"Training for {cfg.train.hp.epochs} epochs (starting from epoch {epoch}) | "
+        f"batch/gpu: {batch_size_per_gpu} | world_size: {dist.world_size} | "
+        f"precision: {fp_optimizations}"
     )
     done = False
     x_axis = y_axis = z_axis = None
@@ -239,15 +232,6 @@ def main(cfg: DictConfig) -> None:
             torch.distributed.all_reduce(loss_sum, op=torch.distributed.ReduceOp.SUM)
         average_loss = (loss_sum / dist.world_size).cpu().item()
 
-        if dist.rank == 0:
-            wandb.log(
-                {
-                    "train/loss": average_loss,
-                    "train/lr": current_lr,
-                    "epoch": ep,
-                }
-            )
-
         ptt = is_time_for_periodic_task_epoch(
             ep,
             cfg.train.io.print_progress_freq,
@@ -260,23 +244,24 @@ def main(cfg: DictConfig) -> None:
 
         if ptt:
             tick_end_time = time.time()
-            fields = []
-            fields += [f"epoch {ep:<6}"]
-            fields += [f"avg_training_loss {average_loss:<7.2f}"]
-            fields += [f"batch_size:{dist.world_size:<3.1f}x{batch_size_per_gpu:<3.1f}"]
-            fields += [f"learning_rate {current_lr:<7.8f}"]
-            fields += [f"total_sec {(tick_end_time - start_time):<7.1f}"]
-            fields += [f"sec_per_epoch {(tick_end_time - tick_start_time):<7.1f}"]
-            fields += [
-                f"cpu_mem_gb {(psutil.Process(os.getpid()).memory_info().rss / 2**30):<6.2f}"
-            ]
-            fields += [
-                f"peak_gpu_mem_gb {(torch.cuda.max_memory_allocated(dist.device) / 2**30):<6.2f}"
-            ]
-            fields += [
-                f"peak_gpu_mem_reserved_gb {(torch.cuda.max_memory_reserved(dist.device) / 2**30):<6.2f}"
-            ]
-            logger0.info(" ".join(fields))
+            sec_per_epoch = tick_end_time - tick_start_time
+            samples_per_epoch = num_batches * batch_size_per_gpu * dist.world_size
+            cpu_mem_gb = psutil.Process(os.getpid()).memory_info().rss / 2**30
+            peak_gpu_mem_gb = torch.cuda.max_memory_allocated(dist.device) / 2**30
+            peak_gpu_mem_reserved_gb = (
+                torch.cuda.max_memory_reserved(dist.device) / 2**30
+            )
+            logger0.info(
+                f"epoch: {ep:>5d} | "
+                f"loss: {average_loss:.4e} | "
+                f"lr: {current_lr:.2e} | "
+                f"throughput: {samples_per_epoch / sec_per_epoch / 1000:.3f} ksamp/s | "
+                f"sec/epoch: {sec_per_epoch:.1f} | "
+                f"total: {tick_end_time - start_time:.0f}s | "
+                f"cpu_mem: {cpu_mem_gb:.2f} GB | "
+                f"gpu_mem: {peak_gpu_mem_gb:.2f} GB (peak) | "
+                f"gpu_mem_reserved: {peak_gpu_mem_reserved_gb:.2f} GB"
+            )
             torch.cuda.reset_peak_memory_stats()
 
         # Unwrap model first
@@ -365,11 +350,14 @@ def main(cfg: DictConfig) -> None:
                     y_axis=y_axis,
                     plot_config=cfg.evaluate.plots,
                 )
-                wandb.log({f"re_stress_from_epoch_{ep}": wandb.Image(fig)})
+                eval_dir = cfg.paths.evaluation
+                os.makedirs(eval_dir, exist_ok=True)
+                fig_path = os.path.join(eval_dir, f"reynolds_stress_epoch_{ep:04d}.png")
+                fig.savefig(fig_path, bbox_inches="tight")
                 plt.close(fig)
+                logger0.info(f"Saved Reynolds-stress comparison to {fig_path}")
 
     logger0.info("Training Completed.")
-    wandb.finish()
 
 
 if __name__ == "__main__":

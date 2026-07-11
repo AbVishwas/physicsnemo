@@ -14,23 +14,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+import logging
+
 import numpy as np
-from omegaconf import ListConfig
+import torch
+
 from physicsnemo.distributed import DistributedManager
 from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
 
 
 def setup_distributed_and_logging(cfg):
+    """Initialize the distributed manager and a rank-aware PythonLogger.
+
+    Returns the ``DistributedManager``, the base ``PythonLogger`` (INFO level),
+    and a ``RankZeroLoggingWrapper`` that only emits from rank 0.
+    """
     DistributedManager.initialize()
     dist = DistributedManager()
     logger = PythonLogger("main")
+    logger.logger.setLevel(logging.INFO)
     logger0 = RankZeroLoggingWrapper(logger, dist)
     logger.info(f"Saving the outputs in {cfg.paths.outputs}")
     return dist, logger, logger0
 
 
 def set_patch_shape(img_shape, patch_shape):
+    """Clamp a patch shape to the image shape and validate it.
+
+    Each patch dimension defaults to the image dimension when ``None`` or larger
+    than the image. A patch smaller than the image must be square and a multiple
+    of 32. Returns the ``(image_shape, patch_shape)`` pair as ``(y, x)`` tuples.
+    """
     img_shape_y, img_shape_x = img_shape
     patch_shape_y, patch_shape_x = patch_shape
     if (patch_shape_x is None) or (patch_shape_x > img_shape_x):

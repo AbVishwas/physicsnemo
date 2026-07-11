@@ -55,8 +55,3 @@ io:
     # How often to save the checkpoints, measured in number of processed samples
     checkpoint_dir: ${paths.checkpoints}
     checkpoint_format: "epoch_{epoch}_step_{step}.pt"
-
-wandb_params:
-    run_name: ${hydra:job.name}
-    log: all
-    log_freq: 1

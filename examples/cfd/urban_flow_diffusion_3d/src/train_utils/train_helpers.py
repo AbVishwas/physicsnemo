@@ -67,17 +67,6 @@ def set_seed(rank):
     torch.manual_seed(np.random.randint(1 << 31))
 
 
-def configure_cuda_for_consistent_precision():
-    """
-    Configures CUDA and cuDNN settings to ensure consistent precision by
-    disabling TensorFloat-32 (TF32) and reduced precision settings.
-    """
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.allow_tf32 = False
-    torch.backends.cuda.matmul.allow_tf32 = False
-    torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = False
-
-
 def compute_num_accumulation_rounds(total_batch_size, batch_size_per_gpu, world_size):
     """
     Calculate the total batch size per GPU in a distributed setting, log the batch size per GPU, ensure it's within valid limits,

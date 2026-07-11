@@ -34,7 +34,6 @@ from src.dataloaders.dataset_utils import (
 from src.gen_utils.gen_helpers import generate_samples, pack_uncond_preds
 from src.metrics.statistics import stat_eval_plot_reynolds_stress_planes
 from src.train_utils.train_helpers import (
-    configure_cuda_for_consistent_precision,
     handle_and_clip_gradients,
     is_time_for_periodic_task_epoch,
     set_seed,
@@ -85,9 +84,8 @@ def main(cfg: DictConfig) -> None:
 
     checkpoint_dir = cfg.train.io.checkpoint_dir
 
-    # Set seeds and configure CUDA and cuDNN settings to ensure consistent precision
+    # Set random seeds for reproducibility
     set_seed(dist.rank)
-    configure_cuda_for_consistent_precision()
 
     train_dataloader, dataset = get_dataset_and_dataloader(
         cfg, Train=True, seed=dist.rank
@@ -180,7 +178,7 @@ def main(cfg: DictConfig) -> None:
 
     for ep in range(epoch, cfg.train.hp.epochs + 1):
         tick_start_time = time.time()
-        loss_accum = 0
+        loss_accum = torch.zeros((), device=dist.device)
         train_dataloader.sampler.set_epoch(epoch)
         num_batches = len(train_dataloader)
         pbar = tqdm.tqdm(
@@ -223,14 +221,13 @@ def main(cfg: DictConfig) -> None:
             )
 
             optimizer.step()
-            loss_accum += loss.detach().item() / num_batches
-
-        loss_sum = torch.tensor([loss_accum], device=dist.device)
+            # Accumulate on-device; the only host sync happens once per epoch
+            # below, not every step.
+            loss_accum += loss.detach() / num_batches
 
         if dist.world_size > 1:
-            torch.distributed.barrier()
-            torch.distributed.all_reduce(loss_sum, op=torch.distributed.ReduceOp.SUM)
-        average_loss = (loss_sum / dist.world_size).cpu().item()
+            torch.distributed.all_reduce(loss_accum, op=torch.distributed.ReduceOp.SUM)
+        average_loss = (loss_accum / dist.world_size).item()
 
         ptt = is_time_for_periodic_task_epoch(
             ep,
@@ -271,10 +268,8 @@ def main(cfg: DictConfig) -> None:
         if hasattr(unwrapped, "_args"):
             unwrapped._args = deep_clean_omegaconf(unwrapped._args)
 
-        # Save checkpoints
-        if dist.world_size > 1:
-            torch.distributed.barrier()
-
+        # Save checkpoints (rank 0). The sync required before the validation
+        # generation below reloads this file is handled by the barrier there.
         if is_time_for_periodic_task_epoch(
             ep,
             cfg.train.io.save_checkpoint_freq,

@@ -15,10 +15,10 @@
 # limitations under the License.
 
 import hydra
+import torch
 from omegaconf import DictConfig
 from src.gen_utils.gen_helpers import generate_samples
 from src.train_utils.train_helpers import (
-    configure_cuda_for_consistent_precision,
     set_seed,
     setup_distributed_and_logging,
 )
@@ -37,7 +37,7 @@ def main(cfg: DictConfig) -> None:
     """
     dist, logger, logger0 = setup_distributed_and_logging(cfg)
     set_seed(dist.rank)
-    configure_cuda_for_consistent_precision()
+    torch.backends.cudnn.benchmark = True
 
     logger.info(f"Loading checkpoint: {cfg.generate.io.inf_ckpt_filepath}")
     model = Module.from_checkpoint(cfg.generate.io.inf_ckpt_filepath)

@@ -29,6 +29,12 @@ from src.dataloaders.dataset_utils import rescale_and_crop_ds4
 
 
 def save_uncond_samples(filename, preds_np, batch_seeds):
+    """Append a batch of samples and their seeds to a resizable HDF5 file.
+
+    Creates the ``uncond_preds`` / ``uncond_seeds`` datasets on the first call
+    and extends them on subsequent calls, so samples can be streamed to disk
+    batch by batch.
+    """
     with h5py.File(filename, "a") as f:
         if "uncond_preds" not in f:
             f.create_dataset(
@@ -113,9 +119,6 @@ def generate_samples(
     logger.info(f'Generating {len(rank_seeds)} images to "{img_outdir}"...')
 
     for batch_seeds in tqdm.tqdm(rank_batches, unit="batch", disable=(dist.rank != 0)):
-        if dist.world_size > 1:
-            torch.distributed.barrier()
-
         batch_size = len(batch_seeds)
         if batch_size == 0:
             continue
@@ -160,6 +163,11 @@ def generate_samples(
 
 
 def pack_uncond_preds(base_filename_h5=None, dist=None):
+    """Concatenate the per-rank sample files into a single array.
+
+    Reads ``uncond_preds`` from each rank's ``*_rank{r}.h5`` shard and stacks
+    them along the batch axis. Returns the combined NumPy array.
+    """
     all_preds = []
 
     for rank in range(dist.world_size):
